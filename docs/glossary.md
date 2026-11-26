@@ -21,14 +21,15 @@ The words of TailorProof and what exactly they mean in **this** app. AI agents r
 | Requirement | A term found in a vacancy, in a must or nice section or in neutral text. It has a priority. Terms in ignored sections are not requirements. | Term, Gap | `Requirement` |
 | Priority | `must` or `nice`, taken from the section or from the marker words of the sentence. | Confidence (out of scope) | `priority` |
 | Quote | The whole sentence of the resume that contains the mention proving a requirement, with its `start` and `end` in the original text. `quote === resume.slice(start, end)`. Only a Matched requirement has one. | Mention, Line | `Quote` |
-| Matched | A requirement with a Quote, found directly, through an alias or through `implements`. | Verified | `matched` |
+| Matched | A requirement with a Quote, found directly, through an alias or through `implements`. | Verified | `matched`, `MatchedRequirement` |
 | Verified | The check that a quote really exists in the resume text: `verifyQuote(resume, quote)` returns `{ start, end }` or `null`. | Matched | `verifyQuote()` |
-| Gap | A requirement that is not Matched, with a reason: `no_quote`, `negated` or `aspirational`. | Not checked | `Gap`, `reason` |
+| Gap | A requirement that is not Matched, with a reason: `no_quote`, `negated` or `aspirational`. | Not checked | `Gap`, `reason`, `GapReason` |
 | Context | The sentence that caused the reason of a negated or aspirational Gap, with its own `start` and `end`. It is shown to explain the Gap and is not proof. | Quote | `context` |
+| Span | A code word only, never shown in the UI: the shape a Quote, a Context and a Fluff sentence share in the API, `{ text, start, end }` with `text === source.slice(start, end)`. | Quote (a Span that proves a requirement) | `Span` |
 | Negation | A pattern shortly before a term that says the person does not have the skill ("no experience with Docker"). It gives the reason `negated`. | Hedging (not negation) | `negated` |
 | Aspiration | A pattern that says the person is only learning the skill ("currently learning Docker"). It gives the reason `aspirational`. | Negation | `aspirational` |
 | Not checked | A line of a vacancy's must or nice section in which the lexicon found no term. Shown as written and never counted in Coverage. | Gap (a term was found, but has no Quote) | `NotChecked`, `notChecked` |
-| Exclude | The user's action that removes a requirement from the result and from Coverage. An excluded requirement can be restored. | Delete | `excluded` |
+| Exclude | The user's action that removes a requirement from the result and from Coverage. An excluded requirement can be restored. | Delete | `excluded`, `ExcludedRequirement` |
 | Coverage | Two numbers: requirements matched out of requirements detected, and must-have matched out of must-have detected. Never one percentage. | Confidence | `coverage` |
 | Fluff | A resume sentence that contains a fluff word and has no digit, no technology term and no action verb. | Weak sentence (not used) | `Fluff` |
 | Fluff word | A word or phrase from the lexicon that signals an empty claim ("passionate", "team player"). Never a term. | Fluff | `fluffWords` |
@@ -37,7 +38,7 @@ The words of TailorProof and what exactly they mean in **this** app. AI agents r
 | Seed | Demo resumes and vacancies in `data/seed.json`. | Lexicon | `seed` |
 | Sample | One of two presets (a resume and a vacancy from the seed) that "Load sample" puts into the Analyze fields. | Seed | `Sample` |
 | Reference results | The expected analysis of the two samples, written in `docs/requirements.md`. They are the first tests (golden tests). | Seed | `golden` |
-| Highlight layer | One of the two views of the resume preview: *Evidence* (quotes, green) or *Fluff* (flagged sentences, yellow). Only one is shown at a time. | — | `layer` |
+| Highlight layer | One of the two views of the resume preview: *Evidence* (the Quote of the selected Matched requirement in green, or the Context of the selected Gap in red) or *Fluff* (flagged sentences, yellow). Only one is shown at a time. | — | `layer` |
 | Analysis | The derived result for one resume and one vacancy. Never stored. | Proposal | `Analysis` |
 | Demo mode / Personal mode | Writes disabled (`ALLOW_WRITES=false`, the default) or enabled (`ALLOW_WRITES=true`). | — | `ALLOW_WRITES` |
 | Demo database | The Neon branch `demo`: only the seed resumes and vacancies, read by a public Demo deployment with a role that cannot write. | Personal mode data (Neon `main`) | `storage` |

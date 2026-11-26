@@ -36,7 +36,7 @@ docs/       requirements.md (what to build), architecture/ (how and why: README,
 - Prefer simple, readable code over abstractions. Do not add files, layers or features "for later".
 - Do not add dependencies unless clearly needed. Explain every new dependency and why it is needed.
 - Use the data storage, hosting and other technical decisions recorded in `docs/architecture/`. If a decision the task needs is missing, propose options and ask instead of choosing silently.
-- Secrets (database URLs, API keys) come from environment variables. Never hard-code them, never commit `.env`, and keep `.env.example` up to date with variable names and fake values.
+- Secrets (database URLs, API keys) come from environment variables. Never hard-code them, never commit `.env`, and keep `.env.example` up to date: every variable name, connection strings left empty, and a fake example in a comment.
 - Frontend: function components and hooks, Tailwind utility classes, handle loading/error/empty states, accessible semantic HTML.
 - Backend: all routes under `/api`, validate input, return JSON errors with correct status codes. Node.js runs the `.ts` files directly, so relative imports use the `.ts` extension and only erasable TypeScript syntax is allowed (no `enum`, `namespace` or parameter properties).
 - Keep `createApp`, `export const app`, `serveFrontend` and the `import.meta.main` check in `apps/api/src/server.ts` so tests can build the app without starting a server and production can serve the frontend.

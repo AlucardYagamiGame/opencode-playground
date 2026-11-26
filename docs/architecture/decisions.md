@@ -11,6 +11,44 @@ Every significant decision: endpoints, data model, storage, dependencies, folder
 - **Consequences:** What becomes easier or harder?
 ```
 
+### 2026-11-26 — Tests and E2E never read the personal `.env`
+
+- **Context:** The architecture review of Step 5 found that a `test` script that reads `.env` puts the unit tests into the user's own mode. `server.ts` builds `app` from the environment when it is imported, so with `ALLOW_WRITES=true` the tests would run against the Neon `main` branch, or fail at import when `DATABASE_URL` is missing. Playwright reuses a running `npm run dev`, which reads `.env` as well.
+- **Decision:**
+  - The `test` script runs `vitest run` without `.env`. The tests see only the shell environment, so the imported `app` is always Demo mode without storage. New route tests call `createApp(testDeps)`.
+  - The database tests take their address from one helper, `src/test/db.ts`: `TEST_DATABASE_URL` from the environment (CI), otherwise from the `.env` file parsed with `util.parseEnv`, taking only that variable. Nothing in the tests reads `DATABASE_URL`.
+  - E2E: `playwright.config.ts` starts its own servers on ports 3101 (API) and 5273 (web) and sets `ALLOW_WRITES=false` and an empty `DATABASE_URL` in `webServer.env`. A variable from the environment wins over `--env-file-if-exists`, even an empty one (checked on Windows), so no extra script is needed. The other ports keep `reuseExistingServer` from picking up a running `npm run dev`.
+  - `.env.example` leaves the connection strings empty and shows fake examples in comments, so a copied file starts in Demo mode without storage instead of pointing at a host that does not exist.
+  - `API_PORT` and `WEB_PORT` are shell variables only and are not in `.env.example`: Vite and Playwright read only the shell, so a port in `.env` would move the API and not the proxy.
+- **Alternatives:** Keep loading `.env` and override variables in the Vitest config (`DATABASE_URL` would still reach the test process). A separate `.env.test` file (one more secret file). A separate `dev:e2e` script (works, but the environment override already does the job). Variables inline in npm scripts (`VAR=value command` does not work in the Windows shell that npm uses).
+- **Consequences:** A test can reach the user's data only by reading `DATABASE_URL` on purpose. E2E runs even while `npm run dev` is open.
+
+### 2026-11-26 — Neon roles and branches for the demo
+
+- **Context:** The demo decision relies on the database refusing writes. A role created in the Neon Console, CLI or API becomes a member of `neon_superuser`, which belongs to `pg_write_all_data` and can write every table (Neon docs, "Manage roles"). A `demo_reader` created on the Roles page would make that guarantee false. A Neon branch also starts as a copy of its parent's data.
+- **Decision:**
+  - `demo_reader` is created with SQL in the SQL Editor of the `demo` branch and gets only `usage` on the schema and `select` on the two tables. A role created with SQL is not a member of `neon_superuser`. After creating it, an `insert` as `demo_reader` must fail with "permission denied"; this is checked once by hand. The SQL is in `data-model.md`.
+  - The branches `dev`, `test` and `demo` are created from `main` while `main` is still empty, so no copy of personal data ends up in them.
+- **Alternatives:** `neon roles create --access read_only` (one more tool to install for one command). A role from the Console (can write).
+- **Consequences:** Setting up the demo takes one SQL snippet instead of a few clicks, and the read-only guarantee holds.
+
+### 2026-11-26 — Smaller fixes from the architecture review
+
+- **Context:** The `architect` review of Step 5 found points a developer would have to guess in Step 6.
+- **Decision:**
+  - **Offsets.** The length rules use the trimmed texts, but `POST /api/analyze` analyzes the texts exactly as sent, so `start` and `end` point into the string the client shows.
+  - **Contract names follow the glossary:** `Requirement` (`MatchedRequirement | Gap | ExcludedRequirement`), `NotChecked`, `Fluff`, `Quote`. `Span` is the shared technical shape of a Quote, a Context and a Fluff sentence, and is in the glossary.
+  - **Lexicon types.** `engine/lexicon.ts` holds the lexicon types and the pure `compileLexicon()`; `lexicon/load.ts` only reads, validates and compiles.
+  - **Web types.** `apps/web/src/api.ts` re-exports `contract.ts` once with `export type *`; other files import from `api.ts`, so the path to the API is written once.
+  - **Errors.** A malformed JSON body is `400 validation_failed` without `field`; a body over the limit is `413 payload_too_large`. `field` stays a plain string, because Agent proposals may later send a path such as `quotes[1]`.
+  - **Ordering.** Lists are ordered by `updated_at desc, title`, because `db:seed` inserts in one transaction and every seed record gets the same `now()`.
+  - **Database scripts** live in `apps/api/package.json` (forwarded from the root with `-w apps/api`) and run `src/store/*.ts` directly, because the build does not copy `schema.sql` to `dist`. The database tests apply the schema once in a Vitest `globalSetup`, and each test file cleans only its own table, because Vitest runs files in parallel and two `create table if not exists` at the same time can fail.
+  - **Use in Analyze.** Loading a resume keeps the exclusions; loading a vacancy clears them, as the requirements say.
+  - **Agents ask before `npm run db:*`** in both tools (`opencode.jsonc` and `.claude/settings.json`), because `db:seed` replaces the contents of the `demo` branch.
+  - **Build order.** The demo-only parts (the `demo` branch, `demo_reader`, `db:seed`, the secret on Render) come last and are the first to cut if time runs out. The read-only checks in the routes and the UI are built together with CRUD, because adding them later costs more.
+- **Alternatives:** Leave these points to Step 6 (each would be decided ad hoc in code, and some only after a bug).
+- **Consequences:** `backend.md`, `frontend.md`, `data-model.md`, the requirements (Copy summary format, quote rules) and the glossary were updated in the same change.
+
 ### 2026-11-26 — Tests and the build order of Step 6
 
 - **Context:** The engine is the riskiest part, and the reference results in the requirements are the best tests the project has. The database is a cloud service that tests cannot always reach.
@@ -22,6 +60,7 @@ Every significant decision: endpoints, data model, storage, dependencies, folder
   - Build order: lexicon and engine with golden tests, then `GET /api/config`, `GET /api/samples` and `POST /api/analyze`, then the Analyze screen, then the store and the CRUD routes, then the Resumes and Vacancies tabs.
 - **Alternatives:** UI first (the engine rules would be discovered late and the UI reworked). Database first (blocks the public demo on the least risky part).
 - **Consequences:** The demo works end to end before any database code exists. Saved-record routes are tested only where a `test` branch is configured.
+- **Revised in Step 5 (review):** E2E runs on its own ports with the environment set in `playwright.config.ts`, the database tests read only `TEST_DATABASE_URL`, and the demo-only parts come last in the build order. See "Tests and E2E never read the personal `.env`" and "Smaller fixes from the architecture review".
 
 ### 2026-11-26 — Frontend: React state and Tailwind, no extra libraries
 
@@ -49,6 +88,7 @@ Every significant decision: endpoints, data model, storage, dependencies, folder
 - **Decision:** Lengths count Unicode code points (`[...text].length` in TypeScript), which is what PostgreSQL `char_length` counts, so the application check and the `CHECK` constraint always agree. JavaScript `.length` counts UTF-16 units and would disagree on emoji. The application sets `updated_at` in every `UPDATE` (no trigger). Lists are ordered by `updated_at` descending ("newest first" means the record touched last). Columns are snake_case; the store maps them to camelCase. The full schema is in `data-model.md`.
 - **Alternatives:** UTF-16 length (an emoji-heavy text could pass the API and fail the database with a `500`). A database trigger for `updated_at` (logic hidden from the TypeScript code).
 - **Consequences:** One helper counts length for every field. Moving to another database keeps the same rule.
+- **Revised in Step 5 (review):** lists are ordered by `updated_at desc, title`. See "Smaller fixes from the architecture review".
 
 ### 2026-11-26 — API contract and error format
 
@@ -61,6 +101,7 @@ Every significant decision: endpoints, data model, storage, dependencies, folder
   - The endpoints and shapes are listed in `backend.md`.
 - **Alternatives:** A `packages/contract` workspace (cleaner boundary, more configuration for two apps). Types copied into the web app (they drift apart). Error bodies without a `code` (the UI would parse messages).
 - **Consequences:** `contract.ts` must not import Node or Express types. A change to it shows up in both apps' type checks.
+- **Revised in Step 5 (review):** the types are named as in the glossary, the web app imports them through one re-export in `src/api.ts`, and a malformed JSON body is `400` without `field`. See "Smaller fixes from the architecture review".
 
 ### 2026-11-26 — Backend layers: a pure engine behind thin routes
 
@@ -83,6 +124,7 @@ Every significant decision: endpoints, data model, storage, dependencies, folder
   - `GET /api/samples` still comes from `data/seed.json`, so "Load sample" works in every state.
 - **Alternatives:** No database in the demo (simplest, but the reason for this entry). Public writes (personal data of strangers, GDPR duties, spam). MongoDB Atlas for the demo (a second `Store` implementation, a second driver and test setup for the same entities, the same privacy question; worth trying later as a separate feature, see the backlog in the requirements).
 - **Consequences:** Neon has four branches: `main` (own data), `dev`, `test`, `demo`. One more variable, `DEMO_DATABASE_URL`, and one more script. The first demo request after idle is slower, because both Render and Neon wake up. Revises parts of the storage, seeding and hosting entries below.
+- **Revised in Step 5 (review):** `demo_reader` is created with SQL, not in the Neon Console, and the branches are created while `main` is empty. See "Neon roles and branches for the demo".
 
 ### 2026-11-26 — Architecture docs are a folder
 
@@ -100,6 +142,7 @@ Every significant decision: endpoints, data model, storage, dependencies, folder
   - The `architect` agent is a Claude Code subagent (`.claude/agents/architect.md`) with only Read, Grep and Glob. It checks a plan or a set of changed files against `docs/architecture/` and returns findings and options. The main session writes decisions after the user approves them.
 - **Alternatives:** An OpenCode `architect` that edits only `docs/architecture/`, as in the guide (the design work is not done in OpenCode). A Claude Code `architect` with Edit and Write limited by a hook (Claude Code restricts a subagent by its tool list, not by path; the hook adds configuration to debug). Dropping OpenCode (loses the cheap workhorse and the course evidence).
 - **Consequences:** When a doc path changes, both `CLAUDE.md`/`AGENTS.md` and `opencode.jsonc`/`.opencode/` are updated together. The read-only architect cannot drift the docs, and only one editor writes each file.
+- **Revised in Step 5 (review):** both tools ask before `npm run db:*` (`opencode.jsonc` and a committed `.claude/settings.json`). See "Smaller fixes from the architecture review".
 
 
 ### 2026-11-26 — Hosting: Render free web service, Demo mode only
@@ -158,4 +201,5 @@ Every significant decision: endpoints, data model, storage, dependencies, folder
 - **Consequences:** Real resumes (with contact details) live in a cloud database, so the user decides what personal data goes into the Personal store. The free plan has small limits, and its compute suspends when idle, so the first query after a pause is slower. Migrations are one SQL file, run by hand. Any later change of storage means a new `Store` implementation, not changes in the routes. Tests of the saving routes need a Neon `test` branch.
 - **Revised in Step 4:** the in-memory store was dropped, ids are generated by the application, and the `.env` loading, the mode switch, `GET /api/config`, the input rules and the separate Neon `test` branch were added.
 - **Revised in Step 5:** Demo mode can now have read-only storage (the Neon `demo` branch), so in Demo mode the `GET` routes of `/api/resumes` and `/api/vacancies` work when `DATABASE_URL` is set, and only writes return `403`. `GET /api/config` also returns `storage`. Lengths count Unicode code points.
+- **Revised in Step 5 (review):** the `test` script no longer reads `.env` (the database tests read only `TEST_DATABASE_URL` through a helper), `API_PORT` left `.env.example`, and the connection strings in it are empty. See "Tests and E2E never read the personal `.env`".
 

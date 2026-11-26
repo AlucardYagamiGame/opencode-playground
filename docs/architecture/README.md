@@ -30,7 +30,7 @@ Browser ──► Vite dev server (:5173) ──/api/*──► Express (:3001) 
                                                      └──► Store ──► Neon PostgreSQL (optional)
 ```
 
-- The frontend uses relative URLs (`fetch('/api/...')`). In development the Vite proxy forwards `/api/*` to Express, so there is one origin and no CORS. Ports: `API_PORT`, `WEB_PORT`.
+- The frontend uses relative URLs (`fetch('/api/...')`). In development the Vite proxy forwards `/api/*` to Express, so there is one origin and no CORS. Ports come from the shell variables `API_PORT` and `WEB_PORT`, never from `.env`, because Vite and Playwright read only the shell.
 - In production (`npm run build`, then `npm start`) Express serves the built frontend from `apps/web/dist` and the API on one port (`PORT`, then `API_PORT`, then 3001). The whole application is one Node.js web service.
 
 ## Modes
@@ -53,7 +53,8 @@ Two environment variables decide what the application may do:
 
 - **Errors.** Every error response is `{ "error": { "code", "message", "field"? } }` with the codes listed in `backend.md`. A `500` never shows internal details.
 - **Validation.** Hand-written, in `apps/api/src/validation.ts`, before any engine or store call. Texts are trimmed first; lengths count Unicode code points.
-- **Configuration.** Only from environment variables, parsed once in `apps/api/src/config.ts`. The list and fake values are in `.env.example`. The API scripts read `.env` with Node's `--env-file-if-exists`; there is no `dotenv`.
+- **Configuration.** Only from environment variables, parsed once in `apps/api/src/config.ts`. The list is in `.env.example`, with empty values and fake examples in comments. The API scripts `dev`, `start`, `db:migrate` and `db:seed` read `.env` with Node's `--env-file-if-exists`; there is no `dotenv`. The unit tests and the E2E servers never read `.env` (see `backend.md` and `frontend.md`).
+- **Agents and the database.** OpenCode and Claude Code ask before any `npm run db:*`, because `db:seed` replaces the contents of the `demo` branch.
 - **Secrets.** Connection strings live in `.env` (ignored by git) or in the hosting dashboard, never in the repository or in a chat.
 - **Fail fast.** The server refuses to start when the lexicon is invalid or `ALLOW_WRITES=true` has no `DATABASE_URL`.
 - **Safe text.** User text is never rendered as HTML.
