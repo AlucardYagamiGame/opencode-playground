@@ -30,7 +30,7 @@ Types: feat, fix, docs, test, refactor, chore, ci
 ## Checklist
 
 - [ ] Terms match `docs/glossary.md`
-- [ ] `docs/architecture.md` updated (if a decision, endpoint, data model or dependency changed)
+- [ ] `docs/architecture/` updated (if a decision, endpoint, data model or dependency changed)
 - [ ] Tests added for new behaviour (success, error, edge cases)
 - [ ] No secrets committed; `.env.example` updated if variables changed
 
