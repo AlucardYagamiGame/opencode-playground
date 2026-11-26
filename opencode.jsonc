@@ -10,7 +10,12 @@
 
   // Extra files loaded into every agent's context, in addition to AGENTS.md.
   // glossary.md keeps the agent from mixing up similar words of your domain.
-  "instructions": ["docs/requirements.md", "docs/architecture.md", "docs/glossary.md"],
+  "instructions": [
+    "docs/requirements.md",
+    "docs/architecture/README.md",
+    "docs/architecture/decisions.md",
+    "docs/glossary.md",
+  ],
 
   // Rules are checked from top to bottom and the LAST matching rule wins,
   // so broad rules come first and exceptions follow them.
@@ -32,6 +37,10 @@
     { "action": "shell", "resource": "git show *", "effect": "allow" },
     { "action": "shell", "resource": "ls *", "effect": "allow" },
     { "action": "shell", "resource": "pwd", "effect": "allow" },
+
+    // Database scripts change a Neon branch (db:seed replaces the contents of "demo"),
+    // so they need your approval although "npm run *" is allowed above.
+    { "action": "shell", "resource": "npm run db:*", "effect": "ask" },
 
     // Agents never push. You review the commits and push them yourself.
     { "action": "shell", "resource": "git push *", "effect": "deny" },

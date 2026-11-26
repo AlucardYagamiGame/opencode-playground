@@ -2,7 +2,7 @@
 
 > **Status:** reviewed draft (Step 4). Change it to "MVP requirements ready" after you read it once more.
 
-This file describes **what** TailorProof must do. AI agents read it before planning or implementing anything (it is loaded automatically through `opencode.jsonc`). Technical decisions (storage, hosting, folder structure) live in `docs/architecture.md`. Domain terms are defined in `docs/glossary.md`: use them exactly.
+This file describes **what** TailorProof must do. AI agents read it before planning or implementing anything (OpenCode loads it through `opencode.jsonc`; Claude Code reads it on demand, see `CLAUDE.md`). Technical decisions (storage, hosting, folder structure) live in `docs/architecture/`. Domain terms are defined in `docs/glossary.md`: use them exactly.
 
 ---
 
@@ -22,10 +22,10 @@ A job seeker who tailors one resume to many vacancies. The texts are in English.
 
 The application runs in two modes, controlled by `ALLOW_WRITES`:
 
-- **Demo mode** (`ALLOW_WRITES=false`, the default): nothing is stored. The user pastes texts or loads a sample and gets an analysis. This is what a public deployment runs.
+- **Demo mode** (`ALLOW_WRITES=false`, the default): nothing the user types is stored. The user pastes texts or loads a sample and gets an analysis. This is what a public deployment runs. When the deployment has a demo database, the Resumes and Vacancies tabs also show the seed records read-only.
 - **Personal mode** (`ALLOW_WRITES=true`): resumes and vacancies can be saved in the database and loaded into the Analyze tab later.
 
-The UI learns the mode, and how many skills the lexicon knows, from `GET /api/config`.
+The UI learns the mode, whether saved records can be shown, and how many skills the lexicon knows from `GET /api/config`.
 
 ## 3. User stories
 
@@ -49,7 +49,8 @@ The UI learns the mode, and how many skills the lexicon knows, from `GET /api/co
 - Fluff marking in the resume. Highlights are shown one layer at a time (Evidence or Fluff) in a read-only preview of the analyzed resume.
 - A "Copy summary" button that copies a plain-text report to the clipboard.
 - Two sample presets (`GET /api/samples`) built from `data/seed.json`.
-- `GET /api/config` with the mode and the size of the lexicon.
+- `GET /api/config` with the mode, the storage flag and the size of the lexicon.
+- Read-only browsing of the seed records in a Demo deployment that has a demo database.
 - Saving, editing and deleting resumes and vacancies in Personal mode.
 
 ### Out of scope
@@ -107,7 +108,7 @@ The precise engine rules are in "Engine rules" below. The criteria of the storie
 
 ### Story 3: matches and quotes
 
-- Every Matched requirement has a `quote` and its `start`/`end` offsets into the original resume text, and `quote === resume.slice(start, end)`. A quote is the whole sentence or list line that contains the mention. A quote that cannot be located is never returned. Every Quote the engine returns passes `verifyQuote`.
+- Every Matched requirement has a `quote` and its `start`/`end` offsets into the original resume text, and `quote === resume.slice(start, end)`. The original text is the text exactly as sent: the length rules of story 1 use the trimmed text, but the analysis never trims, so the offsets fit the text the user sees. A quote is the whole sentence or list line that contains the mention. A quote that cannot be located is never returned. Every Quote the engine returns passes `verifyQuote`.
 - If a term is mentioned several times, the first clean mention is used ("Engine rules", choosing the mention). A direct mention (the term or an alias) is preferred over one through `implements`.
 - An alias counts as the same term: `k8s` in the resume matches Kubernetes in the vacancy, and `Postgres` matches PostgreSQL.
 - A vacancy that asks for a concept is matched by a tool in the resume, and the UI says so ("via Redux Toolkit"). The reverse does not hold: a vacancy that asks for Redux Toolkit is not matched by the words "state management". Relations are followed one hop, never in chains.
@@ -126,7 +127,7 @@ The precise engine rules are in "Engine rules" below. The criteria of the storie
 
 - A sentence of the resume is flagged when it contains a fluff word and contains no digit, no technology term and no action verb.
 - "Led a team of 5 engineers and cut release time by 30%, keeping clean code standards" is not flagged. "Responsible for team communication and clean code" is flagged.
-- Each flagged sentence is listed with its reason in the form `fluff words: "passionate", "team player"; no number, technology term or action verb` (all fluff words found in the sentence).
+- Each flagged sentence is listed with its reason in the form `fluff words: "passionate", "team player"; no number, technology term or action verb`. The list has every fluff word found in the sentence once, written as in the lexicon, in the order of its first appearance in the sentence.
 - A resume with no fluff shows "No fluff found". Fluff is checked in the resume only.
 
 ### Story 6: reading the result
@@ -149,12 +150,22 @@ The precise engine rules are in "Engine rules" below. The criteria of the storie
   - "Responsible for team communication and clean code." (fluff words: "responsible for"; no number, technology term or action verb)
   ```
 
-  This is the report for the *Tricky cases* preset. The fluff words in it only illustrate the format: the real words come from the lexicon. Sections with no entries are left out; a *Not checked:* section (one line per Not checked line) and an *Excluded:* section (one line per excluded term) appear when they have entries. The first line uses the company and title when they are known and "Pasted texts" otherwise.
+  This is the report for the *Tricky cases* preset. The fluff words in it only illustrate the format: the real words come from the lexicon. The format rules:
 
-### Story 7: saving (Personal mode)
+  - **First line.** `TailorProof: <title>, <company>` when the vacancy was loaded (from a sample or a saved record) and has a company, `TailorProof: <title>` when it has no company, and `TailorProof: Pasted texts` when the vacancy was pasted. Editing the vacancy text after loading it switches the first line back to "Pasted texts". Loading a resume does not change it.
+  - **Second line.** The coverage line. When no requirement was found it reads "No known requirements found", and when every requirement is excluded it reads "No requirements left".
+  - **Sections**, in this order, each left out when it has no entries: *Gaps:*, *Not checked:*, *Excluded:*, *Fluff:*.
+  - A *Gaps* line: `- <Term> (<priority>): <reason>`, followed by ` — "<Context>"` for a negated or aspirational Gap.
+  - A *Not checked* line: `- "<line as written>" (<must or nice>)`, for example `- "Calm under pressure" (must)`.
+  - An *Excluded* line: `- <Term> (<priority>)`, for example `- Terraform (nice)`.
+  - A *Fluff* line: `- "<sentence>" (<reason>)`.
+
+### Story 7: saved records
 
 - With `ALLOW_WRITES=true` the Resumes and Vacancies tabs appear. Each lists its saved items, newest first, and offers create, edit, delete (after confirmation) and "Use in Analyze", which loads the saved text into the Analyze tab. In the Analyze tab, "Save resume" asks for a title and "Save vacancy" asks for a title and an optional company; both save the current text.
-- With `ALLOW_WRITES=false` every request to `/api/resumes` and `/api/vacancies` returns `403` with a JSON error, and the UI hides the tabs and the save buttons. `POST /api/analyze`, `GET /api/samples` and `GET /api/config` stay allowed.
+- In Demo mode with a demo database, the Resumes and Vacancies tabs appear read-only: they list the seed records, newest first, and offer only "Use in Analyze". The UI shows no create, edit, delete or save buttons, and every `POST`, `PUT` and `DELETE` to `/api/resumes` and `/api/vacancies` returns `403` with a JSON error.
+- In Demo mode without a database, every request to `/api/resumes` and `/api/vacancies` returns `403` with a JSON error, and the UI hides the tabs and the save buttons.
+- In every mode `POST /api/analyze`, `GET /api/samples` and `GET /api/config` stay allowed.
 - An update replaces the whole record. An unknown id returns `404`. A title that is empty or whitespace-only returns `400`. A title or a company longer than 100 characters returns `400`.
 
 ### Engine rules
@@ -178,7 +189,7 @@ These rules make the criteria testable. They are the contract of the lexicon eng
 3. otherwise any negated or aspirational mention exists: Gap with the reason of the first one, direct mentions before mentions through `implements`;
 4. otherwise: Gap with reason `no_quote`.
 
-**Verifying a quote.** `verifyQuote(resume, quote)` returns `{ start, end }` of the first occurrence of `quote` in `resume`, or `null`. It compares with the same one-for-one normalization as matching and treats every whitespace character as a space. The Quotes of the engine always pass it (a test checks this), and the planned Agent proposals use the same function for quotes written by an agent.
+**Verifying a quote.** `verifyQuote(resume, quote)` returns `{ start, end }` of the first occurrence of `quote` in `resume`, or `null`. An empty or whitespace-only quote always returns `null`, so it can never prove anything. It compares with the same one-for-one normalization as matching and treats every whitespace character as a space. The Quotes of the engine always pass it (a test checks this), and the planned Agent proposals use the same function for quotes written by an agent.
 
 **Sections and priority.** A heading is a line that, without a list marker, equals a heading from the lexicon (ignoring case and a trailing colon), or starts with such a heading followed by a colon ("Nice to have: Docker"). Headings belong to four groups: must ("Requirements", "Required", "Must have", "Qualifications"), nice ("Nice to have", "Bonus", "Preferred"), ignore ("About us", "About the company", "Benefits", "What we offer") and neutral ("About the role", "About the job", "What you will do", "Responsibilities"). Rules:
 
@@ -231,9 +242,9 @@ Other seed vacancies the tests also cover: Globex shows "No known requirements f
 ## 6. Data
 
 - **Resume**: `id`, title (required, max 100 characters), text (required, 30–20,000 characters after trimming), `createdAt`, `updatedAt`.
-- **Vacancy**: `id`, company (optional, max 100 characters), title (required, max 100 characters), text (required, 30–20,000 characters after trimming), `createdAt`, `updatedAt`.
+- **Vacancy**: `id`, company (optional, max 100 characters; an empty or whitespace-only company is stored as none), title (required, max 100 characters), text (required, 30–20,000 characters after trimming), `createdAt`, `updatedAt`.
 - **Analysis** (requirements, matches, gaps, Not checked lines, coverage, fluff) is derived from the two texts and is never stored.
-- Texts are trimmed before validation and stored trimmed, so the length rules and the database constraints always agree.
+- Texts are trimmed before validation and stored trimmed, so the length rules and the database constraints always agree. Lengths count Unicode code points, as the database does.
 
 The lexicon is engine configuration, kept in `data/lexicon.json` (not in `seed.json`). It holds:
 
@@ -251,7 +262,7 @@ The MVP lexicon is curated by hand. Bulk seeding from open datasets (candidates:
 
 The lexicon grows through a reviewed manual process, outside the application. Candidate terms and relations are collected with a search tool, and every `implements` relation carries a source link. A person reviews the change as a diff before it is committed. Lexicon tests check that: the schema is valid, no alias belongs to two terms, relations point to existing terms, `implements` has no cycles, and fluff words and terms do not overlap. After every lexicon change, the results for the two sample presets must stay as in "Reference results".
 
-Demo records live in `data/seed.json`: 2 resumes, 8 vacancies and 2 sample presets.
+Demo records live in `data/seed.json`: 2 resumes, 8 vacancies and 2 sample presets. The same resumes and vacancies are copied into the demo database (never into the Personal one).
 
 ## 7. Open questions
 
@@ -260,3 +271,4 @@ Backlog, not blockers of the MVP:
 - Which open datasets seed the lexicon after the MVP, under which license, and how are their noisy generic terms ("communication") filtered?
 - Who maintains the lexicon, and how large should it grow?
 - Fluff is checked in the resume only. Revisit if the same check is wanted for pasted AI text.
+- Try a document store (MongoDB Atlas) on a separate post-MVP feature, for example anonymous statistics of the most frequent Gap terms (terms and counts only, never texts).

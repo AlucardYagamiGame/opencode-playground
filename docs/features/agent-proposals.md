@@ -27,7 +27,7 @@ The application stays in control. Every suggestion is a **Proposal** that carrie
 
 - **Data:** new entity `Proposal` (`originalQuote`, `rewritten`, `quotes[]`, `status`: `pending | accepted | rejected`, link to a Resume).
 - **API:** create, list and change status of Proposals. It reuses the quote verification function of the MVP (`verifyQuote`).
-- **Agent adapter:** a small MCP server over the REST API. Tools: `list_requirements_and_gaps`, `verify_quote`, `submit_proposal`. One new dependency, `@modelcontextprotocol/sdk`, to be justified in `docs/architecture.md`.
+- **Agent adapter:** a small MCP server over the REST API. Tools: `list_requirements_and_gaps`, `verify_quote`, `submit_proposal`. One new dependency, `@modelcontextprotocol/sdk`, to be justified in `docs/architecture/decisions.md`.
 - **UI:** an "Agent proposals" panel with the original sentence, the rewrite, the verified quotes, and Accept / Reject buttons.
 
 ## Constraints
