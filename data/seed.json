@@ -1,0 +1,65 @@
+{
+  "resumes": [
+    {
+      "title": "Full-Stack Engineer (strong match)",
+      "text": "SUMMARY\nFull-stack engineer with 6 years of experience building web products with React, TypeScript and Node.js.\n\nEXPERIENCE\nSenior Full-Stack Engineer, Brightside Retail (2022-2025)\n- Built a checkout flow in React and TypeScript that raised conversion by 12%.\n- Managed client state with Redux Toolkit across 3 products.\n- Designed and shipped 14 REST endpoints in Node.js and Express backed by PostgreSQL.\n- Migrated the billing service from a monolith to separate services, reducing\ndeploy time by 40%.\n- Containerised 9 services with Docker and moved them to k8s, cutting infrastructure cost by 25%.\n- Set up CI/CD with GitHub Actions and added Jest and Playwright tests, lifting coverage from 35% to 80%.\n\nFull-Stack Developer, Paper Boat Studio (2019-2022)\n- Developed internal tools in JavaScript and Node.js used by 200 employees.\n- Wrote SQL reports in PostgreSQL that replaced 3 weekly manual spreadsheets.\n- Deployed applications to AWS (EC2, S3, RDS).\n\nSKILLS\nReact, TypeScript, JavaScript, Node.js, Express, PostgreSQL, Docker, AWS, GitHub Actions, Jest, Playwright"
+    },
+    {
+      "title": "Backend Developer (tricky cases: fluff, negation, paraphrase)",
+      "text": "SUMMARY\nPassionate team player with strong communication skills and a clean code mindset.\nDynamic, results-driven professional who thrives in fast-paced environments.\n\nEXPERIENCE\nBackend Developer, Lumen Analytics (2021-2025)\n- Responsible for team communication and clean code.\n- Led a team of 5 engineers and cut release time by 30%, keeping clean code standards.\n- Built a machine learning prototype with Python to classify support tickets.\n- Deployed Redis-backed services without downtime during a 3-month migration.\n- Not only did I ship the service with Terraform, I also wrote the runbooks the on-call team still uses.\n- Designed HTTP endpoints for a mobile app, with versioned routes and token authentication.\n- Ran services in containers on a cloud VM.\n\nLEARNING\n- I have no commercial experience with Kubernetes.\n- I am currently learning Docker.\n\nSKILLS\nPython, Redis, Terraform, Linux, Git"
+    }
+  ],
+  "vacancies": [
+    {
+      "company": "Acme Cloud",
+      "title": "Full-Stack Engineer",
+      "text": "Full-Stack Engineer\n\nAbout us\nAcme Cloud builds billing software for small businesses. Our core services are written in Go and run on Kafka, and our team of 40 works fully remote.\n\nRequirements\n- 4+ years of experience with React and TypeScript\n- Solid Node.js and REST API design\n- Experience with PostgreSQL\n- Docker and Kubernetes in production\n- Redis for caching\n\nNice to have\n- AWS\n- GraphQL\n- Terraform\n- State management"
+    },
+    {
+      "company": "Northwind Labs",
+      "title": "Frontend Developer",
+      "text": "Frontend Developer\n\nWhat you will do\nBuild and maintain our customer dashboard together with two designers.\n\nRequirements\n- React and TypeScript\n- Testing with Jest\n- CSS and HTML\n\nNice to have\n- TypeScript strict mode\n- Playwright"
+    },
+    {
+      "company": "Globex Systems",
+      "title": "Office Operations Coordinator",
+      "text": "Office Operations Coordinator\n\nAbout the role\nYou will coordinate daily schedules, welcome visitors, order supplies and keep the office running smoothly.\n\nRequirements\n- Clear written and spoken English\n- Calm under pressure\n- Previous experience in a similar role"
+    },
+    {
+      "company": "Initech",
+      "title": "Backend Engineer (Python)",
+      "text": "Backend Engineer (Python)\n\nRequirements\n- Production Python experience\n- Designing REST APIs\n- Docker\n- Kubernetes\n- Redis\n\nNice to have\n- Terraform\n- PostgreSQL"
+    },
+    {
+      "title": "Senior Full-Stack Engineer (React, Node.js, PostgreSQL, AWS) - remote, EU time zones, product team",
+      "text": "We are a small product team looking for a senior engineer to own features from idea to production.\n\nRequirements\n- React and Node.js\n- PostgreSQL\n- AWS\n\nNice to have\n- Docker\n- GitHub Actions"
+    },
+    {
+      "company": "Stark Digital",
+      "title": "Full-Stack Developer",
+      "text": "Stark Digital\nFull-Stack Developer\nRemote · Full-time · Mid-Senior level\nSign in to see who you know\nShow more\nAbout the job\nWe are looking for a developer to join our product team.\nRequirements:\n• JavaScript and React\n• Node.js\n• Postgres or MySQL\n• Git\nNice to have: Docker\nShow less\nApply\nSave"
+    },
+    {
+      "company": "Wayne Enterprises",
+      "title": "DevOps Engineer",
+      "text": "DevOps Engineer\n\nWe run about 60 services and need someone to own our delivery pipeline. Kubernetes is required. You will also work with Terraform, GitHub Actions and Docker every day, and occasionally with Python scripts. AWS knowledge is a plus."
+    },
+    {
+      "company": "Cyberdyne",
+      "title": "Junior Web Developer",
+      "text": "Junior Web Developer\n\nRequirements\n- HTML and CSS\n- JavaScript basics\n- Willingness to learn\n\nNice to have\n- React"
+    }
+  ],
+  "samples": [
+    {
+      "name": "Strong match",
+      "resume": "Full-Stack Engineer (strong match)",
+      "vacancy": { "company": "Acme Cloud", "title": "Full-Stack Engineer" }
+    },
+    {
+      "name": "Tricky cases",
+      "resume": "Backend Developer (tricky cases: fluff, negation, paraphrase)",
+      "vacancy": { "company": "Initech", "title": "Backend Engineer (Python)" }
+    }
+  ]
+}
