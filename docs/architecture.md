@@ -74,4 +74,51 @@ Also keep the "API endpoints" section up to date.
 
 ## Decision log
 
-<!-- Add your decisions here, newest first. -->
+### 2026-11-26 — Hosting: Render free web service, Demo mode only
+
+- **Context:** A live link strengthens the portfolio. A free Render service sleeps after 15 minutes without traffic and has a temporary disk.
+- **Decision:** Deploy later (Step 8) as one Node.js web service on Render's free plan, started with `ALLOW_WRITES=false` (Demo mode). The deployment holds no personal data and no secrets.
+- **Alternatives:** Another free Node.js host (no advantage here). Render with a database (not needed: Demo mode stores nothing; a free Render PostgreSQL also expires after 30 days).
+- **Consequences:** The temporary disk does not matter, because nothing is written. The first request after sleep takes about a minute. The Personal edition runs only on the user's own computer. The repository's default branch is `master`, so a Render Blueprint must use `branch: master`, not the `main` shown in the guide.
+
+### 2026-11-26 — Decisions the planned "Agent proposals" feature depends on
+
+- **Context:** `docs/features/agent-proposals.md` must not force a rewrite of the MVP. The feature is not built now.
+- **Decision:** The MVP keeps these points open:
+  - API responses are plain JSON with stable shapes. The browser and a future agent read the same structures, with no UI-only fields.
+  - Quote checking is one separate, tested function (`verifyQuote`). `start` and `end` are indexes into the original resume string (JavaScript string indexes, UTF-16 code units).
+  - Every stored Resume and Vacancy has an `id` (generated with `crypto.randomUUID()`), `createdAt` and `updatedAt`. A later Proposal links to a Resume by `resumeId`, and `updatedAt` lets the UI mark a Proposal `outdated`.
+  - There are no users and no roles. `ALLOW_WRITES` is the only switch for writing.
+  - The only dependency the MVP adds is the PostgreSQL driver `pg` (see the storage decision). Validation is hand-written and the lexicon engine is plain TypeScript.
+  - What can wait: the Proposal collection (it will live in the same store), the MCP adapter (a separate local process that calls the REST API; its one dependency, `@modelcontextprotocol/sdk`, will be justified when it is added) and the "Agent proposals" panel.
+- **Alternatives:** Build the Proposal storage and the MCP adapter now (breaks "do not build the feature until asked"). Ignore the feature (risks reshaping the API later).
+- **Consequences:** `updatedAt` and `id` are required in the data model from day one. Extra care is needed so no endpoint returns data shaped only for one UI screen.
+
+### 2026-11-26 — Lexicon is static configuration in `data/lexicon.json`
+
+- **Context:** The engine needs terms, aliases, `implements` relations, section markers, fluff words, action verbs and negation patterns. They change by a reviewed manual process, not at runtime.
+- **Decision:** Keep the lexicon in `data/lexicon.json`, separate from `data/seed.json`. The server reads and validates it once at startup and keeps it in memory. It is committed to git and is read-only at runtime. The MVP lexicon is curated by hand (about 120 terms). Bulk seeding from open datasets comes after the MVP.
+- **Alternatives:** A database table (nothing else needs a database). Markdown files read as an Obsidian-style vault (a possible later editor, not needed for the MVP). Terms hard-coded in TypeScript (hard to review as a diff and to extend).
+- **Consequences:** Lexicon changes are ordinary commits that can be reviewed as a diff. Lexicon tests (schema, no duplicate aliases, valid relations, no `implements` cycles, fluff words are not terms) and golden tests on the two sample presets guard every change. The server refuses to start if the lexicon is invalid.
+
+### 2026-11-26 — Seeding: `seed.json` is read at startup and never written
+
+- **Context:** `data/seed.json` holds fake demo resumes, vacancies and two sample presets (requirements, section 6).
+- **Decision:** The server loads `data/seed.json` into memory at startup. It serves `GET /api/samples` from it in both modes. The seed is never copied into the Personal store: a new Personal store starts empty. The seed records are also the fixtures for engine tests.
+- **Alternatives:** A `db:seed` command (there is no database). Copying seed records into the Personal store on first start (mixes fake and real data).
+- **Consequences:** No seeding command and nothing to make idempotent. A change to the seed can change the golden test results, so both are reviewed together.
+
+### 2026-11-26 — Storage: PostgreSQL on Neon in Personal mode, none in Demo mode
+
+- **Context:** The app has two modes controlled by `ALLOW_WRITES` (requirements, section 2). The public demo stores nothing. Personal mode must keep Resumes and Vacancies after a restart. The data is two flat entities, and the database must work the same from the user's computer and from hosting.
+- **Decision:**
+  - **Demo mode** (`ALLOW_WRITES=false`, the default): no database and no `DATABASE_URL` needed. Every request that would change stored data returns `403` with a JSON error. `POST /api/analyze` stays allowed.
+  - **Personal mode** (`ALLOW_WRITES=true`): PostgreSQL on [Neon](https://neon.com) (free plan), reached through the `pg` driver. `DATABASE_URL` is required in this mode, and the server refuses to start without it.
+  - **Schema:** tables `resumes` and `vacancies` with `id` (uuid, generated by the database), `title`, `text`, `company` (vacancies only, nullable), `created_at` and `updated_at`. The length rules of the requirements (title at most 100, text 30–20,000) are also `CHECK` constraints. The schema lives in one idempotent SQL file (`create table if not exists`), applied by `npm run db:migrate`.
+  - **Store module:** the routes call a small `Store` interface (list, get, create, update, delete). It has two implementations: PostgreSQL and in-memory. The in-memory one is used by the route tests, so `npm run test` needs no database and no secrets. Tests of the PostgreSQL store run only when `TEST_DATABASE_URL` is set and are skipped otherwise.
+  - **Neon branches:** the main branch holds the user's own data; a `dev` branch with fake data is used for development and tests, so experiments never touch real data.
+  - **Configuration** comes from environment variables listed in `.env.example`: `ALLOW_WRITES`, `DATABASE_URL`, `TEST_DATABASE_URL`, `API_PORT`. The connection strings are secrets: they live in `.env` (ignored by git) and never in the repository or in a chat.
+  - **New dependencies:** `pg` (the PostgreSQL driver) and `@types/pg` (its types, dev only).
+- **Alternatives:** A JSON file (simple, but no queries, no constraints, one process only, and lost on Render's temporary disk). MongoDB Atlas (a good fit for documents, but this data is flat and relational constraints are useful). SQLite (a local file, but a dependency too, and cannot be shared between machines). Docker with a local Postgres (needs Docker Desktop and compose for no gain over Neon). Browser `localStorage` (the Express API would be pointless, and agent access would be impossible).
+- **Consequences:** Real resumes (with contact details) live in a cloud database, so the user decides what personal data goes into the Personal store. The free plan has small limits, and its compute suspends when idle, so the first query after a pause is slower. Migrations are one SQL file, run by hand. Any later change of storage means a new `Store` implementation, not changes in the routes.
+
