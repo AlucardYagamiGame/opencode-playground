@@ -56,12 +56,27 @@ A Neon branch starts as a copy of its parent, data included. Create `dev`, `test
 The `SELECT`-only role is created once by hand, **with SQL** in the SQL Editor of the `demo` branch, after the first `npm run db:seed`. Do not create it on the Roles page of the Neon Console: a role created in the Console, the CLI or the API becomes a member of `neon_superuser`, which can write every table. A role created with SQL is not.
 
 ```sql
-create role demo_reader with login password '<a long random password>';
+create role demo_reader with login password '<generated password>';
+grant connect on database neondb to demo_reader;
 grant usage on schema public to demo_reader;
 grant select on resumes, vacancies to demo_reader;
 ```
 
-Then check once that the role cannot write: connected as `demo_reader`, an `insert into resumes ...` must fail with "permission denied". The password goes only into the `DATABASE_URL` of the Render dashboard.
+- `neondb` is the database name from the connection string (the part after the last `/`); use the real one if it differs. `connect` is granted explicitly, as in Neon's own read-only recipe, so the role can connect even when the database does not allow every role by default.
+- Neon requires a password with at least 60 bits of entropy, in plain text. Generate it, do not invent it:
+
+  ```bash
+  node -e "console.log(require('node:crypto').randomBytes(24).toString('base64url'))"
+  ```
+
+  This gives 32 characters (192 bits) from `A–Z a–z 0–9 - _` only, so the password can go into a connection string without escaping (`@`, `:`, `/` or `#` would break the URL).
+
+Then check once, connected as `demo_reader` (its connection string set only in the shell for this check, for example the local API started with it):
+
+1. The role can connect and read: `select count(*) from resumes;` returns the number of seed resumes (in the app: the Resumes tab lists them).
+2. The role cannot write: `insert into resumes (id, title, text) values (gen_random_uuid(), 'x', repeat('x', 30));` fails with "permission denied" (in the app: with `ALLOW_WRITES=true` for this check only, saving a resume fails with `500` and the server log shows "permission denied").
+
+The password goes only into the `DATABASE_URL` of the Render dashboard, never into `.env` or a chat.
 
 ## Seed
 
