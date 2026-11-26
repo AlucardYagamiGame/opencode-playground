@@ -2,7 +2,7 @@
 
 > **Status:** reviewed draft (Step 4). Change it to "MVP requirements ready" after you read it once more.
 
-This file describes **what** TailorProof must do. AI agents read it before planning or implementing anything (it is loaded automatically through `opencode.jsonc`). Technical decisions (storage, hosting, folder structure) live in `docs/architecture.md`. Domain terms are defined in `docs/glossary.md`: use them exactly.
+This file describes **what** TailorProof must do. AI agents read it before planning or implementing anything (OpenCode loads it through `opencode.jsonc`; Claude Code reads it on demand, see `CLAUDE.md`). Technical decisions (storage, hosting, folder structure) live in `docs/architecture/`. Domain terms are defined in `docs/glossary.md`: use them exactly.
 
 ---
 
@@ -22,10 +22,10 @@ A job seeker who tailors one resume to many vacancies. The texts are in English.
 
 The application runs in two modes, controlled by `ALLOW_WRITES`:
 
-- **Demo mode** (`ALLOW_WRITES=false`, the default): nothing is stored. The user pastes texts or loads a sample and gets an analysis. This is what a public deployment runs.
+- **Demo mode** (`ALLOW_WRITES=false`, the default): nothing the user types is stored. The user pastes texts or loads a sample and gets an analysis. This is what a public deployment runs. When the deployment has a demo database, the Resumes and Vacancies tabs also show the seed records read-only.
 - **Personal mode** (`ALLOW_WRITES=true`): resumes and vacancies can be saved in the database and loaded into the Analyze tab later.
 
-The UI learns the mode, and how many skills the lexicon knows, from `GET /api/config`.
+The UI learns the mode, whether saved records can be shown, and how many skills the lexicon knows from `GET /api/config`.
 
 ## 3. User stories
 
@@ -49,7 +49,8 @@ The UI learns the mode, and how many skills the lexicon knows, from `GET /api/co
 - Fluff marking in the resume. Highlights are shown one layer at a time (Evidence or Fluff) in a read-only preview of the analyzed resume.
 - A "Copy summary" button that copies a plain-text report to the clipboard.
 - Two sample presets (`GET /api/samples`) built from `data/seed.json`.
-- `GET /api/config` with the mode and the size of the lexicon.
+- `GET /api/config` with the mode, the storage flag and the size of the lexicon.
+- Read-only browsing of the seed records in a Demo deployment that has a demo database.
 - Saving, editing and deleting resumes and vacancies in Personal mode.
 
 ### Out of scope
@@ -151,10 +152,12 @@ The precise engine rules are in "Engine rules" below. The criteria of the storie
 
   This is the report for the *Tricky cases* preset. The fluff words in it only illustrate the format: the real words come from the lexicon. Sections with no entries are left out; a *Not checked:* section (one line per Not checked line) and an *Excluded:* section (one line per excluded term) appear when they have entries. The first line uses the company and title when they are known and "Pasted texts" otherwise.
 
-### Story 7: saving (Personal mode)
+### Story 7: saved records
 
 - With `ALLOW_WRITES=true` the Resumes and Vacancies tabs appear. Each lists its saved items, newest first, and offers create, edit, delete (after confirmation) and "Use in Analyze", which loads the saved text into the Analyze tab. In the Analyze tab, "Save resume" asks for a title and "Save vacancy" asks for a title and an optional company; both save the current text.
-- With `ALLOW_WRITES=false` every request to `/api/resumes` and `/api/vacancies` returns `403` with a JSON error, and the UI hides the tabs and the save buttons. `POST /api/analyze`, `GET /api/samples` and `GET /api/config` stay allowed.
+- In Demo mode with a demo database, the Resumes and Vacancies tabs appear read-only: they list the seed records, newest first, and offer only "Use in Analyze". The UI shows no create, edit, delete or save buttons, and every `POST`, `PUT` and `DELETE` to `/api/resumes` and `/api/vacancies` returns `403` with a JSON error.
+- In Demo mode without a database, every request to `/api/resumes` and `/api/vacancies` returns `403` with a JSON error, and the UI hides the tabs and the save buttons.
+- In every mode `POST /api/analyze`, `GET /api/samples` and `GET /api/config` stay allowed.
 - An update replaces the whole record. An unknown id returns `404`. A title that is empty or whitespace-only returns `400`. A title or a company longer than 100 characters returns `400`.
 
 ### Engine rules
@@ -233,7 +236,7 @@ Other seed vacancies the tests also cover: Globex shows "No known requirements f
 - **Resume**: `id`, title (required, max 100 characters), text (required, 30–20,000 characters after trimming), `createdAt`, `updatedAt`.
 - **Vacancy**: `id`, company (optional, max 100 characters), title (required, max 100 characters), text (required, 30–20,000 characters after trimming), `createdAt`, `updatedAt`.
 - **Analysis** (requirements, matches, gaps, Not checked lines, coverage, fluff) is derived from the two texts and is never stored.
-- Texts are trimmed before validation and stored trimmed, so the length rules and the database constraints always agree.
+- Texts are trimmed before validation and stored trimmed, so the length rules and the database constraints always agree. Lengths count Unicode code points, as the database does.
 
 The lexicon is engine configuration, kept in `data/lexicon.json` (not in `seed.json`). It holds:
 
@@ -251,7 +254,7 @@ The MVP lexicon is curated by hand. Bulk seeding from open datasets (candidates:
 
 The lexicon grows through a reviewed manual process, outside the application. Candidate terms and relations are collected with a search tool, and every `implements` relation carries a source link. A person reviews the change as a diff before it is committed. Lexicon tests check that: the schema is valid, no alias belongs to two terms, relations point to existing terms, `implements` has no cycles, and fluff words and terms do not overlap. After every lexicon change, the results for the two sample presets must stay as in "Reference results".
 
-Demo records live in `data/seed.json`: 2 resumes, 8 vacancies and 2 sample presets.
+Demo records live in `data/seed.json`: 2 resumes, 8 vacancies and 2 sample presets. The same resumes and vacancies are copied into the demo database (never into the Personal one).
 
 ## 7. Open questions
 
@@ -260,3 +263,4 @@ Backlog, not blockers of the MVP:
 - Which open datasets seed the lexicon after the MVP, under which license, and how are their noisy generic terms ("communication") filtered?
 - Who maintains the lexicon, and how large should it grow?
 - Fluff is checked in the resume only. Revisit if the same check is wanted for pasted AI text.
+- Try a document store (MongoDB Atlas) on a separate post-MVP feature, for example anonymous statistics of the most frequent Gap terms (terms and counts only, never texts).

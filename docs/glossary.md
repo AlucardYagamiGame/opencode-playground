@@ -1,6 +1,6 @@
 # Glossary
 
-The words of TailorProof and what exactly they mean in **this** app. AI agents read this file before every task (it is loaded through `opencode.jsonc`). Use these exact words in requirements, UI texts, code and tests. If you rename a term, change it here first.
+The words of TailorProof and what exactly they mean in **this** app. AI agents read this file before every task (it is loaded through `opencode.jsonc` and imported by `CLAUDE.md`). Use these exact words in requirements, UI texts, code and tests. If you rename a term, change it here first.
 
 ## Terms
 
@@ -40,6 +40,7 @@ The words of TailorProof and what exactly they mean in **this** app. AI agents r
 | Highlight layer | One of the two views of the resume preview: *Evidence* (quotes, green) or *Fluff* (flagged sentences, yellow). Only one is shown at a time. | — | `layer` |
 | Analysis | The derived result for one resume and one vacancy. Never stored. | Proposal | `Analysis` |
 | Demo mode / Personal mode | Writes disabled (`ALLOW_WRITES=false`, the default) or enabled (`ALLOW_WRITES=true`). | — | `ALLOW_WRITES` |
+| Demo database | The Neon branch `demo`: only the seed resumes and vacancies, read by a public Demo deployment with a role that cannot write. | Personal mode data (Neon `main`) | `storage` |
 | Proposal | An agent's suggested rewrite with its Quotes (planned feature). | Resume edit | `Proposal` |
 | Accept | Setting a Proposal's status to `accepted`. It never changes the resume. | Apply | `status` |
 | Apply | Changing the resume text. Always done by the user, never by Accept or by an agent. | Accept | — |
